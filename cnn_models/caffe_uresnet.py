@@ -15,7 +15,7 @@ import torch.utils.model_zoo as model_zoo
 # U-net from (cite)
 #
 # meant to be copy of caffe version
-# 
+#
 #
 #
 ###########################################################
@@ -24,7 +24,7 @@ import torch.utils.model_zoo as model_zoo
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,padding=1, bias=False)
-                     
+
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -36,7 +36,7 @@ class BasicBlock(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.relu2 = nn.ReLU(inplace=True)        
+        self.relu2 = nn.ReLU(inplace=True)
         self.stride = stride
 
         self.bypass = None
@@ -44,7 +44,7 @@ class BasicBlock(nn.Module):
         if inplanes!=planes or stride>1:
             self.bypass = nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, padding=0, bias=False)
             self.bnpass = nn.BatchNorm2d(planes)
-            
+
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -55,7 +55,7 @@ class BasicBlock(nn.Module):
 
         out = self.conv2(out)
         out = self.bn2(out)
-        out = self.relu2(out)        
+        out = self.relu2(out)
 
         if self.bypass is not None:
             outbp = self.bypass(x)
@@ -65,7 +65,7 @@ class BasicBlock(nn.Module):
             out += x
 
         out = self.relu(out)
-        
+
         return out
 
 
@@ -77,9 +77,9 @@ class Bottleneck(nn.Module):
         # residual path
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        
+
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-                               
+
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, planes, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes)
@@ -91,7 +91,7 @@ class Bottleneck(nn.Module):
             self.shortcut = nn.Conv2d(inplanes,planes,kernel_size=1,stride=stride,bias=False)
         else:
             self.shortcut = None
-            
+
 
     def forward(self, x):
 
@@ -141,15 +141,15 @@ class ConvTransposeLayer(nn.Module):
         out = torch.cat( [out,skip_x], 1 )
         out = self.res(out)
         return out
-    
+
 class UResNet(nn.Module):
 
-    def __init__(self, num_classes=3, input_channels=3, inplanes=16, showsizes=False):
+    def __init__(self, num_classes=3, input_channels=3, inplanes=20, showsizes=False):
         self.inplanes =inplanes
         super(UResNet, self).__init__()
 
         self._showsizes = showsizes # print size at each layer
-        
+
         # Encoder
 
         # stem
@@ -158,33 +158,33 @@ class UResNet(nn.Module):
         self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu1 = nn.ReLU(inplace=True)
         self.pool1 = nn.MaxPool2d( 3, stride=2, padding=1 )
-        
-        self.enc_layer1 = self._make_encoding_layer( self.inplanes*1,  self.inplanes*2,  stride=1) # 16->32
-        self.enc_layer2 = self._make_encoding_layer( self.inplanes*2,  self.inplanes*4,  stride=2) # 32->64
-        self.enc_layer3 = self._make_encoding_layer( self.inplanes*4,  self.inplanes*8,  stride=2) # 64->128
-        self.enc_layer4 = self._make_encoding_layer( self.inplanes*8,  self.inplanes*16, stride=2) # 128->256
-        self.enc_layer5 = self._make_encoding_layer( self.inplanes*16, self.inplanes*32, stride=2) # 256->512
 
-        self.dec_layer5 = self._make_decoding_layer( self.inplanes*32,  self.inplanes*16, self.inplanes*16 ) # 512->256
-        self.dec_layer4 = self._make_decoding_layer( self.inplanes*16,  self.inplanes*8,  self.inplanes*8  ) # 256->128
-        self.dec_layer3 = self._make_decoding_layer( self.inplanes*8,   self.inplanes*4,  self.inplanes*4  ) # 128->64
-        self.dec_layer2 = self._make_decoding_layer( self.inplanes*4,   self.inplanes*2,  self.inplanes*2  ) # 64->32
-        self.dec_layer1 = self._make_decoding_layer( self.inplanes*2,   self.inplanes,    self.inplanes    ) # 32->16
-        
+        self.enc_layer1 = self._make_encoding_layer( self.inplanes*1,  self.inplanes*2,  stride=1) # 20->40
+        self.enc_layer2 = self._make_encoding_layer( self.inplanes*2,  self.inplanes*4,  stride=2) # 40->80
+        self.enc_layer3 = self._make_encoding_layer( self.inplanes*4,  self.inplanes*5,  stride=2) # 80->100
+        self.enc_layer4 = self._make_encoding_layer( self.inplanes*5,  self.inplanes*10, stride=2) # 100->200
+        self.enc_layer5 = self._make_encoding_layer( self.inplanes*10, self.inplanes*16, stride=2) # 200->320
+
+        self.dec_layer5 = self._make_decoding_layer( self.inplanes*16,  self.inplanes*10, self.inplanes*10 ) # 320->200
+        self.dec_layer4 = self._make_decoding_layer( self.inplanes*10,  self.inplanes*5,  self.inplanes*5  ) # 200->100
+        self.dec_layer3 = self._make_decoding_layer( self.inplanes*5,   self.inplanes*4,  self.inplanes*4  ) # 100->80
+        self.dec_layer2 = self._make_decoding_layer( self.inplanes*4,   self.inplanes*2,  self.inplanes*2  ) # 80->40
+        self.dec_layer1 = self._make_decoding_layer( self.inplanes*2,   self.inplanes,    self.inplanes    ) # 40->20
+
         # final conv stem (7x7) = (3x3)^3
         self.nkernels = 16
-        self.conv10 = nn.Conv2d(self.inplanes, self.nkernels, kernel_size=7, stride=1, padding=3, bias=True) # initial conv layer
-        self.bn10   = nn.BatchNorm2d(self.nkernels)
+        self.conv10 = nn.Conv2d(self.inplanes, self.inplanes, kernel_size=7, stride=1, padding=3, bias=True) # initial conv layer
+        self.bn10   = nn.BatchNorm2d(self.inplanes)
         self.relu10 = nn.ReLU(inplace=True)
-        
+
         self.conv11 = nn.Conv2d(self.inplanes, num_classes, kernel_size=7, stride=1, padding=3, bias=True) # initial conv layer
         #self.bn11   = nn.BatchNorm2d(num_classes)
         #self.relu11 = nn.ReLU(inplace=True)
-        
 
-        # we use log softmax in order to more easily pair it with 
+
+        # we use log softmax in order to more easily pair it with
         self.softmax = nn.LogSoftmax(dim=1) # should return [b,c=3,h,w], normalized over, c dimension
-        
+
         # initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m,nn.ConvTranspose2d):
@@ -210,7 +210,7 @@ class UResNet(nn.Module):
         x  = self.conv1(x)
         x  = self.bn1(x)
         x0 = self.relu1(x)
-        x = self.pool1(x0)
+        x  = self.pool1(x0)
 
 
         if self._showsizes:
@@ -220,20 +220,20 @@ class UResNet(nn.Module):
         x2 = self.enc_layer2(x1)
         x3 = self.enc_layer3(x2)
         x4 = self.enc_layer4(x3)
-        x5 = self.enc_layer5(x4)        
+        x5 = self.enc_layer5(x4)
         if self._showsizes:
             print "after encoding: "
             print "  x1: ",x1.size()
             print "  x2: ",x2.size()
             print "  x3: ",x3.size()
             print "  x4: ",x4.size()
-            print "  x5: ",x5.size()            
+            print "  x5: ",x5.size()
 
         x = self.dec_layer5(x5,x4)
         if self._showsizes:
             print "after decoding:"
             print "  dec5: ",x.size()," iscuda=",x.is_cuda
-            
+
         x = self.dec_layer4(x,x3)
         if self._showsizes:
             print "  dec4: ",x.size()," iscuda=",x.is_cuda
@@ -257,11 +257,9 @@ class UResNet(nn.Module):
         x = self.conv11(x)
         #x = self.bn11(x)
         #x = self.relu11(x)
-        
+
         x = self.softmax(x)
         if self._showsizes:
             print "  softmax: ",x.size()
-        
+
         return x
-
-
