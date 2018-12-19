@@ -42,19 +42,19 @@ from tensorboardX import SummaryWriter
 # Model definition
 from ASPP_ResNet2 import ASPP_ResNet
 
-GPUMODE=True
-GPUID=1
-RESUME_FROM_CHECKPOINT=True
-RUNPROFILER=False
-CHECKPOINT_FILE="model_best.tar"
+GPUMODE                        = True
+GPUID                          = 0
+RESUME_FROM_CHECKPOINT         = True
+RUNPROFILER                    = False
+CHECKPOINT_FILE                = "model_ASPP_best.tar"
 
 # SegData: class to hold batch data
 # we expect LArCV1Dataset to fill this object
 class SegData:
     def __init__(self):
-        self.dim = None
-        self.images = None # adc image
-        self.labels = None # labels
+        self.dim     = None
+        self.images  = None # adc image
+        self.labels  = None # labels
         self.weights = None # weights
         return
 
@@ -117,9 +117,9 @@ class LArCV1Dataset:
         self.dim3    = (dimv[0], dimv[2], dimv[3] )
 
         # numpy arrays
-        data.np_images  = np.zeros( self.dim,  dtype=np.float32 )
-        data.np_labels  = np.zeros( self.dim3, dtype=np.int )
-        data.np_weights = np.zeros( self.dim3, dtype=np.float32 )
+        data.np_images     = np.zeros( self.dim,  dtype=np.float32 )
+        data.np_labels     = np.zeros( self.dim3, dtype=np.int )
+        data.np_weights    = np.zeros( self.dim3, dtype=np.float32 )
         data.np_images[:]  = larcv.as_ndarray(self.io.data()).reshape(    self.dim  )[:]
         data.np_labels[:]  = larcv.as_ndarray(self.io.labels()).reshape(  self.dim3 )[:]
         data.np_weights[:] = larcv.as_ndarray(self.io.weights()).reshape( self.dim3 )[:]
@@ -425,14 +425,14 @@ def train(train_loader, batchsize, model, criterion, optimizer, nbatches, epoch,
 
     global writer
 
-    batch_time = AverageMeter() # total for batch
-    data_time = AverageMeter()
-    format_time = AverageMeter()
-    forward_time = AverageMeter()
-    backward_time = AverageMeter()
-    acc_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
+    batch_time     = AverageMeter() # total for batch
+    data_time      = AverageMeter()
+    format_time    = AverageMeter()
+    forward_time   = AverageMeter()
+    backward_time  = AverageMeter()
+    acc_time       = AverageMeter()
+    losses         = AverageMeter()
+    top1           = AverageMeter()
 
     acc_list = []
     for i in range(5):
@@ -494,7 +494,7 @@ def train(train_loader, batchsize, model, criterion, optimizer, nbatches, epoch,
         # updates
         losses.update(loss.data[0], data.images.size(0))
         top1.update(prec1[-1], data.images.size(0))
-        for i,acc in enumerate(prec1):
+        for i, acc in enumerate(prec1):
             acc_list[i].update( acc )
 
         # measure elapsed time for batch
@@ -527,9 +527,9 @@ def validate(val_loader, batchsize, model, criterion, nbatches, print_freq, iite
 
     global writer
 
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    top1 = AverageMeter()
+    batch_time  = AverageMeter()
+    losses      = AverageMeter()
+    top1        = AverageMeter()
 
     acc_list = []
     for i in range(5):
@@ -593,12 +593,12 @@ def validate(val_loader, batchsize, model, criterion, nbatches, print_freq, iite
     return float(top1.avg)
 
 
-def save_checkpoint(state, is_best, p, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, p, filename='checkpoint_ASPP.pth.tar'):
     if p>0:
-        filename = "checkpoint.%dth.tar"%(p)
+        filename = "checkpoint_ASPP.%dth.tar"%(p)
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.tar')
+        shutil.copyfile(filename, 'model_ASPP_best.tar')
 
 
 class AverageMeter(object):
