@@ -1,55 +1,75 @@
-# Semantic Segmentation using Atrous Spatial Pyramid Pooling for MicroBooNE Data Analysis
-
-#!/bin/env python
-
-# Import Script
-import torch.nn as nn
-import torch as torch
+# U-Net with Residual Skip connections
+# Three Atrous Spatial Pyramid Pooling Layers
+#
+# Tufts University -- Department of Physics
+# High Energy Physics Research Group
+# Liquid Argon Computer Vision
+#
+##########################################
+# Import Scripts
+##########################################
+import torch.nn              as nn
+import torch                 as torch
 import math
 import torch.utils.model_zoo as model_zoo
-from numbers import Integral
+from   numbers import Integral
 
-
-# python,numpy
-import os,sys,commands
+##########################################
+# Python, Numpy
+##########################################
+import os
+import sys
+import commands
 import shutil
 import time
 import traceback
 import numpy as np
 
-# ROOT, larcv
+##########################################
+# ROOT, LArCV
+##########################################
 import ROOT
-from larcv import larcv
+from   larcv import larcv
 
-# torch
+##########################################
+# Torch
+##########################################
 import torch
-import torch.nn as nn
+import torch.nn               as nn
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
-import torch.distributed as dist
+import torch.backends.cudnn   as cudnn
+import torch.distributed      as dist
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-import torchvision.models as models
-import torch.nn.functional as F
+import torchvision.datasets   as datasets
+import torchvision.models     as models
+import torch.nn.functional    as F
 import warnings
 
-# tensorboardX
+##########################################
+# TensorboardX
+##########################################
 from tensorboardX import SummaryWriter
 
+##########################################
 # Model definition
+##########################################
 from ASPP_ResNet2 import ASPP_ResNet
 
-GPUMODE                        = True
-GPUID                          = 0
-RESUME_FROM_CHECKPOINT         = True
-RUNPROFILER                    = False
-CHECKPOINT_FILE                = "model_ASPP_best.tar"
+##########################################
+# Hardware environment
+##########################################
+GPUID                  = 0
+GPUMODE                = True
+RESUME_FROM_CHECKPOINT = True
+RUNPROFILER            = False
+CHECKPOINT_FILE        = "model_ASPP_best_Nov20_17-28-02.tar"
 
-# SegData: class to hold batch data
-# we expect LArCV1Dataset to fill this object
+##########################################
+# Data object creation and manipulation
+##########################################
 class SegData:
     def __init__(self):
         self.dim     = None
@@ -67,8 +87,8 @@ class SegData:
 def padandcrop(npimg2d,nplabelid,npweightid):
     imgpad  = np.zeros( (264,264), dtype=np.float32 )
     imgpad[4:256+4,4:256+4] = npimg2d[:,:]
-    randx = np.random.randint(0,8)
-    randy = np.random.randint(0,8)
+    randx   = np.random.randint(0,8)
+    randy   = np.random.randint(0,8)
     return imgpad[randx:randx+256,randy:randy+256]
 
 def padandcropandflip(npimg2d):
@@ -82,11 +102,14 @@ def padandcropandflip(npimg2d):
     randy = np.random.randint(0,8)
     return imgpad[randx:randx+256,randy:randy+256]
 
+##########################################
 # Data interface
+##########################################
 class LArCV1Dataset:
     def __init__(self, name, cfgfile ):
         # inputs
-        # cfgfile: path to configuration. see test.py.ipynb for example of configuration
+        # cfgfile: path to configuration.
+        # See test.py.ipynb for example of configuration
         self.name = name
         self.cfgfile = cfgfile
         return
@@ -134,18 +157,15 @@ class LArCV1Dataset:
         #    data.labels.cuda(async=False)
         #    data.weight.cuda(async=False)
 
-
         # debug values
         #print "max label: ",np.max(data.labels)
         #print "min label: ",np.min(data.labels)
 
         return data
 
-
-# Loss Function
-# We define a pixel wise L2 loss
-
-# taken from torch.nn.modules.loss
+##########################################
+# Loss function
+##########################################
 def _assert_no_grad(variable):
     assert not variable.requires_grad, \
         "nn criterions don't compute the gradient w.r.t. targets - please " \
@@ -167,25 +187,33 @@ class PixelWiseNLLLoss(nn.modules.loss._WeightedLoss):
         _assert_no_grad(target)
         _assert_no_grad(pixelweights)
         # reduce for below is false, so returns (b,h,w)
-        pixelloss = F.nll_loss(predict,target, self.weight, self.size_average, self.ignore_index, self.reduce)
+        pixelloss = F.nll_loss(predict,target, self.weight, self.size_average,
+                               self.ignore_index, self.reduce)
         pixelloss *= pixelweights
         return torch.mean(pixelloss)
 
 
-torch.cuda.device( 1 )
+torch.cuda.device(GPUID)
 
-# global variables
-best_prec1 = 0.0  # best accuracy, use to decide when to save network weights
-writer = SummaryWriter() # TensorboardX
+##########################################
+# Global variables & TensorboardX
+##########################################
+best_prec1 = 0.0             # Best acc.
+writer     = SummaryWriter() # TbX
 
+##########################################
+# Main function
+##########################################
 def main():
 
     global best_prec1
     global writer
 
     # create model, mark it to run on the GPU
+    # TODO: Create model selection menu
     if GPUMODE:
-        model = ASPP_ResNet(inplanes=16, in_channels=1, num_classes=3, showsizes=False)
+        model = ASPP_ResNet(inplanes=16, in_channels=1, num_classes=3,
+                            showsizes=False)
         model.cuda(GPUID)
     else:
         model = ASPP_ResNet(inplanes=16,in_channels=1,num_classes=3)
@@ -203,38 +231,46 @@ def main():
     else:
         criterion = PixelWiseNLLLoss()
 
-    # training parameters
-    lr = 2.00e-5
-    momentum = 0.9
-    weight_decay = 1.0e-3
+    ##########################################
+    # Training parameters
+    ##########################################
+    lr                     = 2.00e-7
+    momentum               = 0.9
+    weight_decay           = 1.0e-3
 
-    # training length
-    batchsize_train = 10
-    batchsize_valid = 2
-    start_epoch = 0
-    epochs      = 1
-    start_iter  = 0
-    num_iters   = 10000
-    #num_iters    = None # if None
-    iter_per_epoch = None # determined later
-    iter_per_valid = 10
-    iter_per_checkpoint = 500
+    ##########################################
+    # Training duration
+    ##########################################
+    batchsize_train        = 10
+    batchsize_valid        = 2
+    start_epoch            = 0
+    epochs                 = 1
+    start_iter             = 0
+    num_iters              = 20000
+    iter_per_epoch         = None # Det. later
+    iter_per_valid         = 10
+    iter_per_checkpoint    = 500
 
     nbatches_per_itertrain = 5
-    itersize_train         = batchsize_train*nbatches_per_itertrain
+    itersize_train         = (batchsize_train) * (nbatches_per_itertrain)
     trainbatches_per_print = 1
 
     nbatches_per_itervalid = 25
-    itersize_valid         = batchsize_valid*nbatches_per_itervalid
+    itersize_valid         = (batchsize_valid) * (nbatches_per_itervalid)
     validbatches_per_print = 5
 
+    ##########################################
+    # Optimizer function
+    ##########################################
     optimizer = torch.optim.SGD(model.parameters(), lr,
                                 momentum=momentum,
                                 weight_decay=weight_decay)
 
     cudnn.benchmark = True
 
-    # LOAD THE DATASET
+    ##########################################
+    # Load the dataset
+    ##########################################
 
     # define configurations
     traincfg = """ThreadDatumFillerTrain: {
@@ -321,7 +357,6 @@ def main():
     iotrain.getbatch(batchsize_train)
 
     NENTRIES = iotrain.io.get_n_entries()
-    print "Number of entries in training set: ",NENTRIES
 
     if NENTRIES>0:
         iter_per_epoch = NENTRIES/(itersize_train)
@@ -333,8 +368,34 @@ def main():
     else:
         iter_per_epoch = 1
 
-    print "Number of epochs: ",epochs
-    print "Iter per epoch: ",iter_per_epoch
+    print " "
+    print "#############################################################"
+    print " "
+    print "Model loaded with the following training parameters:"
+    print " "
+    print "Learning Rate:         --------------",lr
+    print "Momentum:              --------------",momentum
+    print "Number of entries in training set: --",NENTRIES
+    print "Number of Iterations:  --------------",num_iters
+    print "Iterations per epoch:  --------------",iter_per_epoch
+    print "Number of Iterations per Checkpoint:-",iter_per_checkpoint
+    print "Training Batch Size:   --------------",batchsize_train
+    print "Validation Batch Size: --------------",batchsize_valid
+    print "Number of epochs:      --------------",epochs
+    print " "
+    print "#############################################################"
+    print " "
+    print "Hardware Environment:"
+    print " "
+    print "GPUID:                 --------------",GPUID
+    print "GPUMODE:               --------------",GPUMODE
+    print "RESUME_FROM_CHECKPOINT:--------------",RESUME_FROM_CHECKPOINT
+    print "CHECKPOINT_FILE:      ",CHECKPOINT_FILE
+    print " "
+    print "#############################################################"
+    print "########## Press return to launch training routine ##########"
+    print "#############################################################"
+    raw_input()
 
     with torch.autograd.profiler.profile(enabled=RUNPROFILER) as prof:
 
@@ -356,21 +417,26 @@ def main():
 
             # train for one epoch
             try:
-                train_ave_loss, train_ave_acc = train(iotrain, batchsize_train, model,
-                                                      criterion, optimizer,
-                                                      nbatches_per_itertrain, ii, trainbatches_per_print)
+                train_ave_loss, train_ave_acc = train(iotrain, batchsize_train,
+                                                      model, criterion, optimizer,
+                                                      nbatches_per_itertrain, ii,
+                                                      trainbatches_per_print)
             except Exception,e:
                 print "Error in training routine!"
                 print e.message
                 print e.__class__.__name__
                 traceback.print_exc(e)
                 break
-            print "Iter:%d Epoch:%d.%d train aveloss=%.3f aveacc=%.3f"%(ii,ii/iter_per_epoch,ii%iter_per_epoch,train_ave_loss,train_ave_acc)
+            print "Iter:%d Epoch:%d.%d train aveloss=%.3f aveacc=%.3f"\
+                  %(ii,ii/iter_per_epoch,ii%iter_per_epoch,\
+                    train_ave_loss,train_ave_acc)
 
             # evaluate on validation set
             if ii%iter_per_valid==0:
                 try:
-                    prec1 = validate(iovalid, batchsize_valid, model, criterion, nbatches_per_itervalid, validbatches_per_print, ii)
+                    prec1 = validate(iovalid, batchsize_valid, model, criterion,
+                                     nbatches_per_itervalid,
+                                     validbatches_per_print, ii)
                 except Exception,e:
                     print "Error in validation routine!"
                     print e.message
@@ -378,7 +444,7 @@ def main():
                     traceback.print_exc(e)
                     break
 
-                # remember best prec@1 and save checkpoint
+                # Record best prediction & save checkpoint
                 is_best = prec1 > best_prec1
                 best_prec1 = max(prec1, best_prec1)
 
@@ -420,8 +486,11 @@ def main():
     print prof
     writer.close()
 
-
-def train(train_loader, batchsize, model, criterion, optimizer, nbatches, epoch, print_freq):
+##########################################
+# Training routine
+##########################################
+def train(train_loader, batchsize, model, criterion, optimizer, nbatches,
+          epoch, print_freq):
 
     global writer
 
@@ -456,8 +525,10 @@ def train(train_loader, batchsize, model, criterion, optimizer, nbatches, epoch,
         end = time.time()
         if GPUMODE:
             images_var = torch.autograd.Variable(data.images.cuda(GPUID))
-            labels_var = torch.autograd.Variable(data.labels.cuda(GPUID),requires_grad=False)
-            weight_var = torch.autograd.Variable(data.weight.cuda(GPUID),requires_grad=False)
+            labels_var = torch.autograd.Variable(data.labels.cuda(GPUID),
+                                                 requires_grad=False)
+            weight_var = torch.autograd.Variable(data.weight.cuda(GPUID),
+                                                 requires_grad=False)
         else:
             images_var = torch.autograd.Variable(data.images)
             labels_var = torch.autograd.Variable(data.labels,requires_grad=False)
@@ -475,7 +546,7 @@ def train(train_loader, batchsize, model, criterion, optimizer, nbatches, epoch,
             torch.cuda.synchronize()
         forward_time.update(time.time()-end)
 
-        # compute gradient and do SGD step
+        # Compute gradient & SGD step
         if RUNPROFILER:
             torch.cuda.synchronize()
         end = time.time()
@@ -511,19 +582,26 @@ def train(train_loader, batchsize, model, criterion, optimizer, nbatches, epoch,
                       acc_time.val,acc_time.avg,
                       losses.val,losses.avg,
                       top1.val,top1.avg)
-            print "Iter: [%d][%d/%d]\tBatch %.3f (%.3f)\tData %.3f (%.3f)\tFormat %.3f (%.3f)\tForw %.3f (%.3f)\tBack %.3f (%.3f)\tAcc %.3f (%.3f)\t || \tLoss %.3f (%.3f)\tPrec@1 %.3f (%.3f)"%status
+            print "Iter: [%d][%d/%d]\tBatch %.3f (%.3f)\tData %.3f (%.3f)\
+                   \tFormat %.3f (%.3f)\tForw %.3f (%.3f)\tBack %.3f (%.3f)\
+                   \tAcc %.3f (%.3f)\t || \tLoss %.3f (%.3f)\tPrec@1 %.3f\
+                    (%.3f)"%status
 
     writer.add_scalar('data/train_loss', losses.avg, epoch )
     writer.add_scalars('data/train_accuracy', {'background': acc_list[0].avg,
                                                'track':  acc_list[1].avg,
                                                'shower': acc_list[2].avg,
                                                'total':  acc_list[3].avg,
-                                               'nonzero':acc_list[4].avg}, epoch )
+                                               'nonzero':acc_list[4].avg},
+                                               epoch)
 
     return losses.avg,top1.avg
 
-
-def validate(val_loader, batchsize, model, criterion, nbatches, print_freq, iiter):
+##########################################
+# Validation routine
+##########################################
+def validate(val_loader, batchsize, model, criterion, nbatches, print_freq,
+             iiter):
 
     global writer
 
@@ -545,17 +623,20 @@ def validate(val_loader, batchsize, model, criterion, nbatches, print_freq, iite
         # convert to pytorch Variable (with automatic gradient calc.)
         if GPUMODE:
             images_var = torch.autograd.Variable(data.images.cuda(GPUID))
-            labels_var = torch.autograd.Variable(data.labels.cuda(GPUID),requires_grad=False)
-            weight_var = torch.autograd.Variable(data.weight.cuda(GPUID),requires_grad=False)
+            labels_var = torch.autograd.Variable(data.labels.cuda(GPUID),
+                                                 requires_grad=False)
+            weight_var = torch.autograd.Variable(data.weight.cuda(GPUID),
+                                                 requires_grad=False)
         else:
             images_var = torch.autograd.Variable(data.images)
-            labels_var = torch.autograd.Variable(data.labels,requires_grad=False)
-            weight_var = torch.autograd.Variable(data.weight,requires_grad=False)
+            labels_var = torch.autograd.Variable(data.labels,
+                                                 requires_grad=False)
+            weight_var = torch.autograd.Variable(data.weight,
+                                                 requires_grad=False)
 
         # compute output
         output = model(images_var)
-        loss = criterion(output, labels_var, weight_var)
-        #loss = criterion(output, labels_var)
+        loss   = criterion(output, labels_var, weight_var)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, labels_var.data, images_var.data)
@@ -569,8 +650,10 @@ def validate(val_loader, batchsize, model, criterion, nbatches, print_freq, iite
         end = time.time()
 
         if i % print_freq == 0:
-            status = (i,nbatches,batch_time.val,batch_time.avg,losses.val,losses.avg,top1.val,top1.avg)
-            print "Valid: [%d/%d]\tTime %.3f (%.3f)\tLoss %.3f (%.3f)\tPrec@1 %.3f (%.3f)"%status
+            status = (i,nbatches,batch_time.val,batch_time.avg,losses.val,
+                      losses.avg,top1.val,top1.avg)
+            print "Valid: [%d/%d]\tTime %.3f (%.3f)\tLoss %.3f (%.3f)\tPrec@1 \
+                    %.3f (%.3f)"%status
             #print('Test: [{0}/{1}]\t'
             #      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
             #      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
@@ -583,10 +666,11 @@ def validate(val_loader, batchsize, model, criterion, nbatches, print_freq, iite
 
     writer.add_scalar( 'data/valid_loss', losses.avg, iiter )
     writer.add_scalars('data/valid_accuracy', {'background': acc_list[0].avg,
-                                               'track':   acc_list[1].avg,
-                                               'shower':  acc_list[2].avg,
-                                               'total':   acc_list[3].avg,
-                                               'nonzero': acc_list[4].avg}, iiter )
+                                               'track':      acc_list[1].avg,
+                                               'shower':     acc_list[2].avg,
+                                               'total':      acc_list[3].avg,
+                                               'nonzero':    acc_list[4].avg},
+                                               iiter )
 
     print "Test:Result* Prec@1 %.3f\tLoss %.3f"%(top1.avg,losses.avg)
 
@@ -613,10 +697,10 @@ class AverageMeter(object):
         self.count = 0
 
     def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
+        self.val    = val
+        self.sum   += val * n
         self.count += n
-        self.avg = self.sum / self.count
+        self.avg    = self.sum / self.count
 
 
 def adjust_learning_rate(optimizer, epoch, lr):
@@ -630,9 +714,12 @@ def adjust_learning_rate(optimizer, epoch, lr):
 
 
 def accuracy(output, target, imgdata):
-    """Computes the accuracy. we want the aggregate accuracy along with accuracies for the different labels. easiest to just use numpy..."""
+    """Computes the accuracy. we want the aggregate accuracy along with \
+    accuracies for the different labels. easiest to just use numpy..."""
+
     profile = False
-    # needs to be as gpu as possible!
+
+    # Needs to be on the GPU
     maxk = 1
     batch_size = target.size(0)
     if profile:
@@ -648,18 +735,19 @@ def accuracy(output, target, imgdata):
         start = time.time()
     #print "pred ",pred.size()," iscuda=",pred.is_cuda
     #print "target ",target.size(), "iscuda=",target.is_cuda
-    targetex = target.resize_( pred.size() ) # expanded view, should not include copy
+    targetex = target.resize_( pred.size() ) # expanded view, no copy
     correct = pred.eq( targetex ) # on gpu
     #print "correct ",correct.size(), " iscuda=",correct.is_cuda
     if profile:
         torch.cuda.synchronize()
         print "time to calc correction matrix: ",time.time()-start," secs"
 
-    # we want counts for elements wise
-    num_per_class = {}
+    # Elementwise counts
+    num_per_class  = {}
     corr_per_class = {}
-    total_corr = 0
-    total_pix  = 0
+    total_corr     = 0
+    total_pix      = 0
+
     if profile:
         torch.cuda.synchronize()
         start = time.time()
@@ -668,7 +756,8 @@ def accuracy(output, target, imgdata):
         classmat = targetex.eq(int(c)) # elements where class is labeled
         #print "classmat: ",classmat.size()," iscuda=",classmat.is_cuda
         num_per_class[c] = classmat.sum()
-        corr_per_class[c] = (correct*classmat).sum() # mask by class matrix, then sum
+        corr_per_class[c] = (correct*classmat).sum() # mask by class matrix,
+                                                     # then sum
         total_corr += corr_per_class[c]
         total_pix  += num_per_class[c]
     if profile:
@@ -685,7 +774,8 @@ def accuracy(output, target, imgdata):
 
     # totals
     res.append( 100.0*float(total_corr)/total_pix )
-    res.append( 100.0*float(corr_per_class[1]+corr_per_class[2])/(num_per_class[1]+num_per_class[2]+1.0e-8) ) # track/shower acc
+    res.append( 100.0*float(corr_per_class[1]+corr_per_class[2])/
+                            (num_per_class[1]+num_per_class[2]+1.0e-8) )
 
     return res
 

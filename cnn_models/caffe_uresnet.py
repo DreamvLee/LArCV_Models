@@ -6,16 +6,15 @@ import torch.utils.model_zoo as model_zoo
 ###########################################################
 #
 # U-ResNet
-# U-net witih ResNet modules
+# U-net with ResNet modules
 #
 # Semantic segmentation network used by MicroBooNE
 # to label track/shower pixels
 #
-# resnet implementation from pytorch.torchvision module
+# Resnet implementation from pytorch.torchvision module
 # U-net from (cite)
 #
 # meant to be copy of caffe version
-#
 #
 #
 ###########################################################
@@ -150,40 +149,82 @@ class UResNet(nn.Module):
 
         self._showsizes = showsizes # print size at each layer
 
-        # Encoder
+        ######################################################################
+        ############################## Encoder ###############################
+        ######################################################################
 
-        # stem
-        # one big stem
-        self.conv1 = nn.Conv2d(input_channels, self.inplanes, kernel_size=7, stride=1, padding=3, bias=True) # initial conv layer
-        self.bn1 = nn.BatchNorm2d(self.inplanes)
+        ######################################################################
+        # Stem 1 & initial convolution layer
+        ######################################################################
+        self.conv1 = nn.Conv2d(input_channels, self.inplanes, kernel_size=7,
+                               stride=1, padding=3, bias=True)
+        self.bn1   = nn.BatchNorm2d(self.inplanes)
         self.relu1 = nn.ReLU(inplace=True)
         self.pool1 = nn.MaxPool2d( 3, stride=2, padding=1 )
 
-        self.enc_layer1 = self._make_encoding_layer( self.inplanes*1,  self.inplanes*2,  stride=1) # 20->40
-        self.enc_layer2 = self._make_encoding_layer( self.inplanes*2,  self.inplanes*4,  stride=2) # 40->80
-        self.enc_layer3 = self._make_encoding_layer( self.inplanes*4,  self.inplanes*5,  stride=2) # 80->100
-        self.enc_layer4 = self._make_encoding_layer( self.inplanes*5,  self.inplanes*10, stride=2) # 100->200
-        self.enc_layer5 = self._make_encoding_layer( self.inplanes*10, self.inplanes*16, stride=2) # 200->320
+        ######################################################################
+        # Encoding Layer (20->40, 40->80, 80->100, 100->200, 200->320)
+        ######################################################################
 
-        self.dec_layer5 = self._make_decoding_layer( self.inplanes*16,  self.inplanes*10, self.inplanes*10 ) # 320->200
-        self.dec_layer4 = self._make_decoding_layer( self.inplanes*10,  self.inplanes*5,  self.inplanes*5  ) # 200->100
-        self.dec_layer3 = self._make_decoding_layer( self.inplanes*5,   self.inplanes*4,  self.inplanes*4  ) # 100->80
-        self.dec_layer2 = self._make_decoding_layer( self.inplanes*4,   self.inplanes*2,  self.inplanes*2  ) # 80->40
-        self.dec_layer1 = self._make_decoding_layer( self.inplanes*2,   self.inplanes,    self.inplanes    ) # 40->20
+        self.enc_layer1 = self._make_encoding_layer( self.inplanes*1,
+                                                     self.inplanes*2,
+                                                     stride=1)
+        self.enc_layer2 = self._make_encoding_layer( self.inplanes*2,
+                                                     self.inplanes*4,
+                                                     stride=2)
+        self.enc_layer3 = self._make_encoding_layer( self.inplanes*4,
+                                                     self.inplanes*5,
+                                                     stride=2)
+        self.enc_layer4 = self._make_encoding_layer( self.inplanes*5,
+                                                     self.inplanes*10,
+                                                     stride=2)
+        self.enc_layer5 = self._make_encoding_layer( self.inplanes*10,
+                                                     self.inplanes*16,
+                                                     stride=2)
 
-        # final conv stem (7x7) = (3x3)^3
+        ######################################################################
+        ############################## Decoder ###############################
+        ######################################################################
+
+        ######################################################################
+        # Decoding Layer (320->200, 200->100, 100->80, 80->40, 40->20)
+        ######################################################################
+        self.dec_layer5 = self._make_decoding_layer( self.inplanes*16,
+                                                     self.inplanes*10,
+                                                     self.inplanes*10)
+        self.dec_layer4 = self._make_decoding_layer( self.inplanes*10,
+                                                     self.inplanes*5,
+                                                     self.inplanes*5)
+        self.dec_layer3 = self._make_decoding_layer( self.inplanes*5,
+                                                     self.inplanes*4,
+                                                     self.inplanes*4)
+        self.dec_layer2 = self._make_decoding_layer( self.inplanes*4,
+                                                     self.inplanes*2,
+                                                     self.inplanes*2)
+        self.dec_layer1 = self._make_decoding_layer( self.inplanes*2,
+                                                     self.inplanes,
+                                                     self.inplanes)
+
+        ######################################################################
+        # Final conv stem (7x7) = (3x3)^3
+        ######################################################################
         self.nkernels = 16
-        self.conv10 = nn.Conv2d(self.inplanes, self.inplanes, kernel_size=7, stride=1, padding=3, bias=True) # initial conv layer
+        self.conv10 = nn.Conv2d(self.inplanes, self.inplanes, kernel_size=7,
+                                stride=1, padding=3, bias=True)
         self.bn10   = nn.BatchNorm2d(self.inplanes)
         self.relu10 = nn.ReLU(inplace=True)
 
-        self.conv11 = nn.Conv2d(self.inplanes, num_classes, kernel_size=7, stride=1, padding=3, bias=True) # initial conv layer
+        self.conv11 = nn.Conv2d(self.inplanes, num_classes, kernel_size=7,
+                                stride=1, padding=3, bias=True)
         #self.bn11   = nn.BatchNorm2d(num_classes)
         #self.relu11 = nn.ReLU(inplace=True)
 
 
-        # we use log softmax in order to more easily pair it with
-        self.softmax = nn.LogSoftmax(dim=1) # should return [b,c=3,h,w], normalized over, c dimension
+        ######################################################################
+        # Loss Function: Log softmax
+        # Should return [b,c=3,h,w], normalized over c dimension
+        ######################################################################
+        self.softmax = nn.LogSoftmax(dim=1)
 
         # initialization
         for m in self.modules():
@@ -206,16 +247,19 @@ class UResNet(nn.Module):
         if self._showsizes:
             print "input: ",x.size()," is_cuda=",x.is_cuda
 
-        # stem
+        ######################################################################
+        # Stem 1 & initial convolution layer
+        ######################################################################
         x  = self.conv1(x)
         x  = self.bn1(x)
         x0 = self.relu1(x)
         x  = self.pool1(x0)
 
-
         if self._showsizes:
             print "after conv1, x0: ",x0.size()
-
+        ######################################################################
+        # Encoding Layer (20->40, 40->80, 80->100, 100->200, 200->320)
+        ######################################################################
         x1 = self.enc_layer1(x)
         x2 = self.enc_layer2(x1)
         x3 = self.enc_layer3(x2)
@@ -229,6 +273,9 @@ class UResNet(nn.Module):
             print "  x4: ",x4.size()
             print "  x5: ",x5.size()
 
+        ######################################################################
+        # Decoding Layer (320->200, 200->100, 100->80, 80->40, 40->20)
+        ######################################################################
         x = self.dec_layer5(x5,x4)
         if self._showsizes:
             print "after decoding:"
@@ -258,6 +305,9 @@ class UResNet(nn.Module):
         #x = self.bn11(x)
         #x = self.relu11(x)
 
+        ######################################################################
+        # Loss Function
+        ######################################################################
         x = self.softmax(x)
         if self._showsizes:
             print "  softmax: ",x.size()
