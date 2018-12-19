@@ -50,7 +50,5 @@ def get_file_path(dpath, tag):
 
 
 if __name__ == '__main__':
-    path = "/Users/KsEuro/Dropbox/Academics/Research/deeplearnphysics\
-            /pytorch/fall_2018/ASPP_ResNet/training_set1_fa18/Oct04/\
-            Oct04_17-27-07_meitner/data/valid_accuracy"
+    path = " "
     to_csv(path)
