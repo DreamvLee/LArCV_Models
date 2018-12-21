@@ -1,10 +1,20 @@
-import os
-import numpy as np
-import pandas as pd
+#
+# filename: tb_events.py
+# purpose:  generates csv file from tree of events.out*.localmachine file
+#
+# notes: - adopted from StackOverflow response:
+#        https://stackoverflow.com/questions/42355122/can-i-export-a-tensorflow-summary-to-csv
+#        - [12/21/18]: only grabs accuracy data for each scalar label
+#                      does not export loss data
 
+###############################
+# Import Script
+###############################
+import os
+import numpy  as np
+import pandas as pd
 from collections import defaultdict
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
-
 
 def tabulate_events(dpath):
     summary_iterators = [EventAccumulator(os.path.join(dpath, dname)).Reload()\
@@ -28,7 +38,6 @@ def tabulate_events(dpath):
 
     return out, steps
 
-
 def to_csv(dpath):
     dirs         = os.listdir(dpath)
 
@@ -40,7 +49,6 @@ def to_csv(dpath):
         df = pd.DataFrame(np_values[index], index=steps, columns=dirs)
         df.to_csv(get_file_path(dpath, tag))
 
-
 def get_file_path(dpath, tag):
     file_name   = tag.replace("/", "_") + '.csv'
     folder_path = os.path.join(dpath, 'csv')
@@ -48,7 +56,13 @@ def get_file_path(dpath, tag):
         os.makedirs(folder_path)
     return os.path.join(folder_path, file_name)
 
+###############################
+# Main Function
+###############################
+def main():
+    path = input("Provide file path or drag in folder from GUI:")
+    path = path.rstrip() + '/'
+    to_csv(path)
 
 if __name__ == '__main__':
-    path = " "
-    to_csv(path)
+    main()

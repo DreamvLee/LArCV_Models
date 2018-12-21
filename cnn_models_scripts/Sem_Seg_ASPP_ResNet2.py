@@ -539,9 +539,9 @@ def train(train_loader, batchsize, model, criterion, optimizer, nbatches,
         # compute output
         if RUNPROFILER:
             torch.cuda.synchronize()
-        end = time.time()
+        end    = time.time()
         output = model(images_var)
-        loss = criterion(output, labels_var, weight_var)
+        loss   = criterion(output, labels_var, weight_var)
         if RUNPROFILER:
             torch.cuda.synchronize()
         forward_time.update(time.time()-end)

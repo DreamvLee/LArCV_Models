@@ -328,7 +328,7 @@ class ASPP_ResNet(nn.Module):
         self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
 
         ######################################################################
-        # Encoding Layer (16->32, 32->64, 32->64, 64->128, 128->256, 256->512)
+        # Encoding Layer (16->32, 32->64, 64->128, 128->256, 256->512)
         ######################################################################
         self.enc_layer1 = self._make_encoding_layer(self.inplanes * 1,
                                                     self.inplanes * 2,
