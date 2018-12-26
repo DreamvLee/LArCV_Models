@@ -1,10 +1,13 @@
-# High statistics validation for CNN models
-#      trained on LArCV1 dataset
 #
 # Tufts University | Department of Physics
 # High Energy Physics Research Group
-# Liquid Argon Computer Vision
+# Liquid Argon Computer Vision (LArCV)
 #
+# filename: validation_routine.py
+#
+# purpose:  computes high statistics sample of CNN validation accuracy via the
+#           total number of correctly predicted pixels in 10000 validation
+#           images in order to achieve an observational error of 1.0%
 ##########################################
 # Import Scripts
 ##########################################
@@ -64,10 +67,9 @@ from caffe_uresnet import UResNet
 MODEL                   = 1
 GPUID                   = 1
 GPUMODE                 = True
-RESUME_FROM_CHECKPOINT  = True
 RUNPROFILER             = False
 CHECKPOINT_FILE         = "/media/hdd1/kai/ASPP_/training_set3_fa18/Nov07/model_ASPP_best_Nov07_13-12-57.tar"
-OUTPUT_CSV_DIR          = "/media/hdd1/kai/ASPP_/training_set3_fa18/"
+OUTPUT_CVS_DIR          = "/media/hdd1/kai/ASPP_/training_set3_fa18/"
 
 ##########################################
 # Functions and Classes:
@@ -182,16 +184,6 @@ def main(MODEL = MODEL):
 
     global best_prec1
 
-    # TODO: Write loop that extracts checkpoint filename
-    #       from text file and performs 1 iteration of
-    #       the validation routine per checkpoint
-
-    # Loop prototype:
-    # with open('checkpoints.txt', 'r') as data:
-    #     for line in data:
-    #         checkpoint = line.rstrip()
-    #         CHECKPOINT_FILE = checkpoint
-
     # Create model -- instantiate on the GPU
     if MODEL == 1:
         if GPUMODE:
@@ -209,7 +201,7 @@ def main(MODEL = MODEL):
     # Load checkpoint and state dictionary
     # Map the checkpoint file to the CPU -- removes GPU mapping
     map_location = {"cuda:0":"cpu","cuda:1":"cpu"}
-    checkpoint = torch.load( CHECKPOINT_FILE, map_location = map_location )
+    checkpoint   = torch.load( CHECKPOINT_FILE, map_location = map_location )
 
     best_prec1 = checkpoint["best_prec1"]
     print "state_dict size: ", len(checkpoint["state_dict"])
@@ -382,7 +374,7 @@ def main(MODEL = MODEL):
     print " "
 
     # Create CSV file and write results to it
-    filename  = OUTPUT_CSV_DIR + modelinfo + '{:%m_%d_%Y}' + '.csv'
+    filename  = OUTPUT_CVS_DIR + modelinfo + '{:%m_%d_%Y}' + '.csv'
     today     = pd.Timestamp('today')
 
     if os.path.isfile(filename.format(today)):
@@ -418,9 +410,8 @@ def validate(val_loader, batchsize, model, criterion, nbatches, print_freq,
              iiter):
 
     # Pixel buckets
-    pixel_list     = []
-    pixel_bucket   = []
-    acc_list       = []
+    pixel_list   = []
+    pixel_bucket = []
 
     # Initialize Arrays
     for i in range(0, 8):

@@ -50,18 +50,6 @@ import warnings
 ##########################################
 
 ##########################################
-# List of Functions and Classes:
-# conv3x3(in_planes, out_planes, stride=1)
-# BasicBlock(nn.Module)
-# Bottleneck(nn.Module)
-# DoubleResNet(nn.Module)
-# ConvTranspose2d(nn.Module)
-# ASPP(nn.Module)
-# ASPP_post(nn.Module)
-# ASPP_ResNet(nn.Module)
-##########################################
-
-##########################################
 # Function Definitions
 ##########################################
 def conv3x3(in_planes, out_planes, stride=1):

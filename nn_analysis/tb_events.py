@@ -13,6 +13,7 @@
 import os
 import numpy  as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from collections import defaultdict
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
@@ -40,7 +41,6 @@ def tabulate_events(dpath):
 
 def to_csv(dpath):
     dirs         = os.listdir(dpath)
-
     d, steps     = tabulate_events(dpath)
     tags, values = zip(*d.items())
     np_values    = np.array(values)
@@ -48,6 +48,7 @@ def to_csv(dpath):
     for index, tag in enumerate(tags):
         df = pd.DataFrame(np_values[index], index=steps, columns=dirs)
         df.to_csv(get_file_path(dpath, tag))
+    return tag
 
 def get_file_path(dpath, tag):
     file_name   = tag.replace("/", "_") + '.csv'
@@ -56,13 +57,28 @@ def get_file_path(dpath, tag):
         os.makedirs(folder_path)
     return os.path.join(folder_path, file_name)
 
+def plot_events(path, tag):
+    outFile = path + 'csv/' + tag
+    x = np.loadtxt(open(outFile, 'r'), delimiter = ",", skiprows = (1), usecols = (1, 5))
+    fig   = plt.figure()
+    ax    = fig.add_subplot(111)
+    title = 'Data Plot'
+    ax.set_title(title)
+    ax.set_xlabel('Iteration Number')
+    ax.set_ylabel('Loss / Accuracy')
+    plt.plot(x = x[:0], y = [x[:1], x[:2], x[:3], x[:4], x[:5]])
+    saveFig = path + '_' + title + '.png'
+    plt.savefig(saveFig, dpi=300)
+
 ###############################
 # Main Function
 ###############################
 def main():
     path = input("Provide file path or drag in folder from GUI:")
     path = path.rstrip() + '/'
-    to_csv(path)
+    tag = to_csv(path)
+    tag = tag.replace("/", "_") + '.csv'
+    plot_events(path, tag)
 
 if __name__ == '__main__':
     main()

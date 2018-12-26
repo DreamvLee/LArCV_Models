@@ -22,7 +22,7 @@ def main():
         print "Parameters in model1: ", params1
         print "Parameters in model2: ", params2
         print "Absolute difference:  ", paramDelta
-        print "Percent difference: ",   percentDiff
+        print "Percent difference:   ", percentDiff
 
 if __name__ == "__main__":
         main()
