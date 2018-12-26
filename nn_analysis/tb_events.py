@@ -1,12 +1,17 @@
 #
+# Tufts University | Department of Physics
+# High Energy Physics Research Group
+# Liquid Argon Computer Vision (LArCV)
+#
 # filename: tb_events.py
+#
 # purpose:  generates csv file from tree of events.out*.localmachine file
 #
-# notes: - adopted from StackOverflow response:
-#        https://stackoverflow.com/questions/42355122/can-i-export-a-tensorflow-summary-to-csv
-#        - [12/21/18]: only grabs accuracy data for each scalar label
-#                      does not export loss data
-
+# note:     this script expects a folder structure like:
+#            - accuracy:
+#              ¬ class tag 1
+#              ¬ class tag 2
+#              ¬ class tag 3
 ###############################
 # Import Script
 ###############################

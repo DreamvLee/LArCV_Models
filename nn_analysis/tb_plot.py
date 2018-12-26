@@ -1,10 +1,16 @@
 #
+# Tufts University | Department of Physics
+# High Energy Physics Research Group
+# Liquid Argon Computer Vision (LArCV)
+#
 # filename: tb_plot.py
+#
 # purpose:  This script will iterate over a set of CSV files in a given folder
 #           (presumed to be TensorBoard output) and generate high resolution
 #           plots with labeled axes. Data shape is expected to be [1001, 3].
 #           The csv headers are skipped and only columns 1 and 2 are loaded
 #           into a numpy array.
+#
 # author:   Kai Kharpertian
 # dept:     Tufts University - Department of Physics
 # date:     December 21, 2018
@@ -27,7 +33,8 @@ def tb_data_plot(inputDir, path):
     for fileName in glob.glob(path):
         tBFile  = fileName[-50:]
         outFile = inputDir + tBFile
-        x = np.loadtxt(open(outFile, 'r'), delimiter = ",", skiprows = (1), usecols = (1, 2))
+        x = np.loadtxt(open(outFile, 'r'), delimiter = ",", skiprows = (1),
+                       usecols = (1, 2))
         fig   = plt.figure()
         ax    = fig.add_subplot(111)
         title = 'Run ID: ' + tBFile[4:15] + ' ' + tBFile[36:46]
