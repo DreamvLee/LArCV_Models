@@ -1,4 +1,4 @@
-# U-Net with Residual Skip connections
+# U-Net with Residual Skip Connections
 # Three Atrous Spatial Pyramid Pooling Layers
 #
 # Tufts University -- Department of Physics
@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch as torch
 import math
 import torch.utils.model_zoo as model_zoo
-from   numbers import Integral
+from numbers import Integral
 
 ##########################################
 # Python, Numpy
@@ -29,7 +29,7 @@ import numpy as np
 # ROOT, LArCV
 ##########################################
 import ROOT
-from   larcv import larcv
+from larcv import larcv
 
 ##########################################
 # Torch
@@ -52,6 +52,8 @@ import warnings
 ##########################################
 # Function Definitions
 ##########################################
+
+
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -187,7 +189,7 @@ class ASPP(nn.Module):
     def __init__(self, inplanes, outplanes=16, nkernels=16, showsizes=False):
         super(ASPP, self).__init__()
 
-        stride         = 1
+        stride = 1
         self.inplanes  = inplanes
         self.outplanes = outplanes
         self.nkernels  = nkernels
@@ -196,25 +198,25 @@ class ASPP(nn.Module):
         # Block 1
         self.B1_conv = nn.Conv2d(self.inplanes, self.outplanes, kernel_size=1,
                                  stride=stride, padding=0, dilation=1, bias=True)
-        self.B1_bn = nn.BatchNorm2d(self.nkernels)
+        self.B1_bn   = nn.BatchNorm2d(self.nkernels)
         self.B1_relu = nn.ReLU(inplace=True)
 
         # Block 2
         self.B2_conv = nn.Conv2d(self.inplanes, self.outplanes, kernel_size=3,
                                  stride=stride, padding=1, dilation=1, bias=True)
-        self.B2_bn = nn.BatchNorm2d(self.nkernels)
+        self.B2_bn   = nn.BatchNorm2d(self.nkernels)
         self.B2_relu = nn.ReLU(inplace=True)
 
         # Block 3
         self.B3_conv = nn.Conv2d(self.inplanes, self.outplanes, kernel_size=3,
                                  stride=stride, padding=3, dilation=3, bias=True)
-        self.B3_bn = nn.BatchNorm2d(self.nkernels)
+        self.B3_bn   = nn.BatchNorm2d(self.nkernels)
         self.B3_relu = nn.ReLU(inplace=True)
 
         # Block 4
         self.B4_conv = nn.Conv2d(self.inplanes, self.outplanes, kernel_size=3,
                                  stride=stride, padding=5, dilation=5, bias=True)
-        self.B4_bn = nn.BatchNorm2d(self.nkernels)
+        self.B4_bn   = nn.BatchNorm2d(self.nkernels)
         self.B4_relu = nn.ReLU(inplace=True)
 
         # Block 5
@@ -265,14 +267,14 @@ class ASPP_post(nn.Module):  # from ASPP_combine
     def __init__(self, inplanes, outplanes):
         super(ASPP_post, self).__init__()
 
-        self.inplanes = inplanes
+        self.inplanes  = inplanes
         self.outplanes = outplanes
-        self.nkernels = outplanes
+        self.nkernels  = outplanes
         self.outplanes = outplanes
 
         self.ASPP_conv = nn.Conv2d(self.inplanes, self.outplanes, kernel_size=1,
                                    stride=1, padding=0, bias=True)
-        self.ASPP_bn = nn.BatchNorm2d(self.nkernels)
+        self.ASPP_bn   = nn.BatchNorm2d(self.nkernels)
         self.ASPP_relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
@@ -293,8 +295,8 @@ class ASPP_ResNet(nn.Module):
         ######################################################################
         # Class variables
         ######################################################################
-        stride           = 1
-        stride_mp        = 2
+        stride = 1
+        stride_mp = 2
 
         self.nkernels    = 16
         self.inplanes    = inplanes
@@ -311,7 +313,7 @@ class ASPP_ResNet(nn.Module):
         ######################################################################
         self.conv1 = nn.Conv2d(in_channels, self.inplanes, kernel_size=7,
                                stride=1, padding=3, bias=True)
-        self.bn1   = nn.BatchNorm2d(self.inplanes)
+        self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu1 = nn.ReLU(inplace=True)
         self.pool1 = nn.MaxPool2d(3, stride=2, padding=1)
 
@@ -337,15 +339,15 @@ class ASPP_ResNet(nn.Module):
         ######################################################################
         # Atrous Spatial Pyramid Pooling (ASPP)
         ######################################################################
-        self.ASPP_layer_enc3   = self.ASPP_layer(self.inplanes * 8)
+        self.ASPP_layer_enc3 = self.ASPP_layer(self.inplanes * 8)
         self.ASPP_combine_enc3 = self.ASPP_combine(self.inplanes * 12,
                                                    self.inplanes * 8)
 
-        self.ASPP_layer_enc4   = self.ASPP_layer(self.inplanes * 16)
+        self.ASPP_layer_enc4 = self.ASPP_layer(self.inplanes * 16)
         self.ASPP_combine_enc4 = self.ASPP_combine(self.inplanes * 20,
                                                    self.inplanes * 16)
 
-        self.ASPP_layer_enc5   = self.ASPP_layer(self.inplanes * 32)
+        self.ASPP_layer_enc5 = self.ASPP_layer(self.inplanes * 32)
         self.ASPP_combine_enc5 = self.ASPP_combine(self.inplanes * 36,
                                                    self.inplanes * 32)
 
@@ -376,13 +378,13 @@ class ASPP_ResNet(nn.Module):
         # Final conv stem (7x7) = (3x3)^3
         ######################################################################
         self.nkernels = 16
-        self.conv10   = nn.Conv2d(self.inplanes, self.nkernels, kernel_size=7,
-                                  stride=1, padding=3, bias=True)
-        self.bn10     = nn.BatchNorm2d(self.nkernels)
-        self.relu10   = nn.ReLU(inplace=True)
+        self.conv10 = nn.Conv2d(self.inplanes, self.nkernels, kernel_size=7,
+                                stride=1, padding=3, bias=True)
+        self.bn10 = nn.BatchNorm2d(self.nkernels)
+        self.relu10 = nn.ReLU(inplace=True)
 
-        self.conv11   = nn.Conv2d(self.inplanes, num_classes, kernel_size=7,
-                                  stride=1, padding=3, bias=True)
+        self.conv11 = nn.Conv2d(self.inplanes, num_classes, kernel_size=7,
+                                stride=1, padding=3, bias=True)
 
         ######################################################################
         # Loss Function: Log softmax
